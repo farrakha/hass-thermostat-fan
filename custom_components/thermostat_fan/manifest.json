@@ -1,0 +1,12 @@
+{
+    "domain": "thermostat_fan",
+    "name": "Thermostat with fan",
+    "codeowners": ["@farrakha"],
+    "dependencies": ["template"],
+    "documentation": "https://github.com/farrakha/hass-thermostat-fan",
+    "iot_class": "calculated",
+    "issue_tracker": "https://github.com/farrakha/hass-thermostat-fan/issues",
+    "requirements": [],
+    "version": "0.0.1"
+  }
+  
