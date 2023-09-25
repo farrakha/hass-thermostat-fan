@@ -75,6 +75,9 @@ DEFAULT_NAME = "Generic Thermostat"
 CONF_MODE_LIST = "modes"
 CONF_FAN_MODE_LIST = "fan_modes"
 CONF_HEATER = "heater"
+CONF_FAN_HIGH = "fan_high_switch"
+CONF_FAN_MEDIUM = "fan_medium_switch"
+CONF_FAN_LOW= "fan_low_switch"
 CONF_SENSOR = "target_sensor"
 CONF_MIN_TEMP = "min_temp"
 CONF_MAX_TEMP = "max_temp"
@@ -103,6 +106,9 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_HEATER): cv.entity_id,
         vol.Required(CONF_SENSOR): cv.entity_id,
+        vol.Optional(CONF_FAN_HIGH): cv.entity_id,
+        vol.Optional(CONF_FAN_MEDIUM): cv.entity_id,
+        vol.Optional(CONF_FAN_LOW): cv.entity_id,
         vol.Optional(CONF_AC_MODE): cv.boolean,
         vol.Optional(CONF_MAX_TEMP): vol.Coerce(float),
         vol.Optional(CONF_MIN_DUR): cv.positive_time_period,
@@ -121,7 +127,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_TEMP_STEP): vol.In(
             [PRECISION_TENTHS, PRECISION_HALVES, PRECISION_WHOLE]
         ),
-                vol.Optional(
+        vol.Optional(
             CONF_MODE_LIST,
             default=[
                 HVACMode.AUTO,
@@ -154,6 +160,9 @@ async def async_setup_platform(
     name = config.get(CONF_NAME)
     heater_entity_id = config.get(CONF_HEATER)
     sensor_entity_id = config.get(CONF_SENSOR)
+    fan_high_entity_id = config.get(CONF_FAN_HIGH)
+    fan_medium_entity_id = config.get(CONF_FAN_MEDIUM)
+    fan_low_entity_id = config.get(CONF_FAN_LOW)
     min_temp = config.get(CONF_MIN_TEMP)
     max_temp = config.get(CONF_MAX_TEMP)
     target_temp = config.get(CONF_TARGET_TEMP)
@@ -179,6 +188,9 @@ async def async_setup_platform(
                 name,
                 heater_entity_id,
                 sensor_entity_id,
+                fan_high_entity_id,
+                fan_medium_entity_id,
+                fan_low_entity_id,
                 min_temp,
                 max_temp,
                 target_temp,
@@ -210,6 +222,9 @@ class ThermostatFan(ClimateEntity, RestoreEntity):
         name,
         heater_entity_id,
         sensor_entity_id,
+        fan_high_entity_id,
+        fan_medium_entity_id,
+        fan_low_entity_id,
         min_temp,
         max_temp,
         target_temp,
@@ -231,6 +246,9 @@ class ThermostatFan(ClimateEntity, RestoreEntity):
         self._attr_name = name
         self.heater_entity_id = heater_entity_id
         self.sensor_entity_id = sensor_entity_id
+        self.fan_high_entity_id = fan_high_entity_id
+        self.fan_medium_entity_id = fan_medium_entity_id
+        self.fan_low_entity_id = fan_low_entity_id
         self.ac_mode = ac_mode
         self.min_cycle_duration = min_cycle_duration
         self._cold_tolerance = cold_tolerance
@@ -253,6 +271,7 @@ class ThermostatFan(ClimateEntity, RestoreEntity):
         self._target_temp = target_temp
         self._attr_temperature_unit = unit
         self._attr_fan_modes = attr_fan_modes
+        self._attr_fan_mode = FAN_AUTO
         #self._attr_hvac_modes = attr_hvac_modes
         self._attr_unique_id = unique_id
         self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
@@ -558,9 +577,11 @@ class ThermostatFan(ClimateEntity, RestoreEntity):
     async def _async_heater_turn_on(self):
         """Turn heater toggleable device on."""
         data = {ATTR_ENTITY_ID: self.heater_entity_id}
+        self._attr_fan_mode = FAN_HIGH
         await self.hass.services.async_call(
             HA_DOMAIN, SERVICE_TURN_ON, data, context=self._context
         )
+        await self._async_control_fan(turn_on=True)
 
     async def _async_heater_turn_off(self):
         """Turn heater toggleable device off."""
@@ -568,6 +589,7 @@ class ThermostatFan(ClimateEntity, RestoreEntity):
         await self.hass.services.async_call(
             HA_DOMAIN, SERVICE_TURN_OFF, data, context=self._context
         )
+        await self._async_control_fan(turn_on=False)
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set new preset mode."""
@@ -591,6 +613,57 @@ class ThermostatFan(ClimateEntity, RestoreEntity):
             await self._async_control_heating(force=True)
 
         self.async_write_ha_state()
+
+    async def _async_control_fan(self, turn_on: bool):
+        _LOGGER.info("Controlling fan")
+        if not turn_on:
+            await self._turn_off_all_fans()
+        else:
+            if self._attr_fan_mode == FAN_AUTO:
+                if self._target_temp - self._cur_temp > 2.0:
+                    await self._turn_on_fan_high()
+                elif self._target_temp - self._cur_temp > 1.0:
+                    await self._turn_on_fan_medium()
+                else:
+                    await self._turn_on_fan_low()
+            elif self._attr_fan_mode == FAN_HIGH:
+                await self._turn_on_fan_high()
+            elif self._attr_fan_mode == FAN_MEDIUM:
+                await self._turn_on_fan_medium()
+            elif self._attr_fan_mode == FAN_LOW:
+                await self._turn_on_fan_low()
+
+    async def _turn_on_fan_high(self):
+        await self._turn_off_fan(FAN_MEDIUM)
+        await self._turn_off_fan(FAN_LOW)
+        await self._turn_on_fan(FAN_HIGH)
+
+    async def _turn_on_fan_medium(self):
+        await self._turn_off_fan(FAN_HIGH)
+        await self._turn_off_fan(FAN_LOW)
+        await self._turn_on_fan(FAN_MEDIUM)
+
+    async def _turn_on_fan_low(self):
+        await self._turn_off_fan(FAN_HIGH)
+        await self._turn_off_fan(FAN_MEDIUM)
+        await self._turn_on_fan(FAN_LOW)
+
+    async def _turn_off_all_fans(self):
+        await self._turn_off_fan(FAN_HIGH)
+        await self._turn_off_fan(FAN_MEDIUM)
+        await self._turn_off_fan(FAN_LOW)
+
+    async def _turn_off_fan(self, fan: str):
+        data = {ATTR_ENTITY_ID: fan}
+        await self.hass.services.async_call(
+            HA_DOMAIN, SERVICE_TURN_OFF, data, context=self._context
+        )
+
+    async def _turn_on_fan(self, fan: str):
+        data = {ATTR_ENTITY_ID: fan}
+        await self.hass.services.async_call(
+            HA_DOMAIN, SERVICE_TURN_ON, data, context=self._context
+        )
 
     async def async_set_fan_mode(self, fan_mode: str) -> None:
         """Set new fan mode."""
