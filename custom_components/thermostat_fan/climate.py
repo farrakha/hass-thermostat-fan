@@ -619,9 +619,9 @@ class ThermostatFan(ClimateEntity, RestoreEntity):
             await self._turn_off_all_fans()
         else:
             if self._attr_fan_mode == FAN_AUTO:
-                if self._target_temp - self._cur_temp > 2.0:
+                if abs(self._target_temp - self._cur_temp) > 2.0:
                     await self._turn_on_fan_high()
-                elif self._target_temp - self._cur_temp > 1.0:
+                elif abs(self._target_temp - self._cur_temp) > 1.0:
                     await self._turn_on_fan_medium()
                 else:
                     await self._turn_on_fan_low()
@@ -667,3 +667,4 @@ class ThermostatFan(ClimateEntity, RestoreEntity):
     async def async_set_fan_mode(self, fan_mode: str) -> None:
         """Set new fan mode."""
         _LOGGER.info("Setting fan mode to %s", fan_mode)
+        self._attr_fan_mode = fan_mode
