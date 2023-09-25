@@ -106,9 +106,9 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_HEATER): cv.entity_id,
         vol.Required(CONF_SENSOR): cv.entity_id,
-        vol.Optional(CONF_FAN_HIGH): cv.entity_id,
-        vol.Optional(CONF_FAN_MEDIUM): cv.entity_id,
-        vol.Optional(CONF_FAN_LOW): cv.entity_id,
+        vol.Required(CONF_FAN_HIGH): cv.entity_id,
+        vol.Required(CONF_FAN_MEDIUM): cv.entity_id,
+        vol.Required(CONF_FAN_LOW): cv.entity_id,
         vol.Optional(CONF_AC_MODE): cv.boolean,
         vol.Optional(CONF_MAX_TEMP): vol.Coerce(float),
         vol.Optional(CONF_MIN_DUR): cv.positive_time_period,
