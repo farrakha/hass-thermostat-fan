@@ -616,7 +616,7 @@ class ThermostatFan(ClimateEntity, RestoreEntity):
 
     async def _async_control_fan(self):
         _LOGGER.info("Controlling fan")
-        if self.hvac_action == HVACAction.OFF:
+        if self.hvac_action == HVACAction.OFF or self.hvac_action == HVACAction.IDLE:
             await self._turn_off_all_fans()
         else:
             if self._attr_fan_mode == FAN_AUTO:
