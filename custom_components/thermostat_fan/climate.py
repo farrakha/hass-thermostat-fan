@@ -435,6 +435,7 @@ class ThermostatFan(ClimateEntity, RestoreEntity):
             return
         self._target_temp = temperature
         await self._async_control_heating(force=True)
+        await self._async_control_fan()
         self.async_write_ha_state()
 
     @property
@@ -465,6 +466,7 @@ class ThermostatFan(ClimateEntity, RestoreEntity):
 
         self._async_update_temp(new_state)
         await self._async_control_heating()
+        await self._async_control_fan()
         self.async_write_ha_state()
 
     async def _check_switch_initial_state(self):
@@ -580,7 +582,6 @@ class ThermostatFan(ClimateEntity, RestoreEntity):
         await self.hass.services.async_call(
             HA_DOMAIN, SERVICE_TURN_ON, data, context=self._context
         )
-        await self._async_control_fan(turn_on=True)
 
     async def _async_heater_turn_off(self):
         """Turn heater toggleable device off."""
@@ -588,7 +589,7 @@ class ThermostatFan(ClimateEntity, RestoreEntity):
         await self.hass.services.async_call(
             HA_DOMAIN, SERVICE_TURN_OFF, data, context=self._context
         )
-        await self._async_control_fan(turn_on=False)
+        await self._turn_off_all_fans()
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set new preset mode."""
@@ -613,9 +614,9 @@ class ThermostatFan(ClimateEntity, RestoreEntity):
 
         self.async_write_ha_state()
 
-    async def _async_control_fan(self, turn_on: bool):
+    async def _async_control_fan(self):
         _LOGGER.info("Controlling fan")
-        if not turn_on:
+        if self.hvac_action == HVACAction.OFF:
             await self._turn_off_all_fans()
         else:
             if self._attr_fan_mode == FAN_AUTO:
