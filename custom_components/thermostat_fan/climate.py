@@ -577,7 +577,6 @@ class ThermostatFan(ClimateEntity, RestoreEntity):
     async def _async_heater_turn_on(self):
         """Turn heater toggleable device on."""
         data = {ATTR_ENTITY_ID: self.heater_entity_id}
-        self._attr_fan_mode = FAN_HIGH
         await self.hass.services.async_call(
             HA_DOMAIN, SERVICE_TURN_ON, data, context=self._context
         )
@@ -634,24 +633,24 @@ class ThermostatFan(ClimateEntity, RestoreEntity):
                 await self._turn_on_fan_low()
 
     async def _turn_on_fan_high(self):
-        await self._turn_off_fan(FAN_MEDIUM)
-        await self._turn_off_fan(FAN_LOW)
-        await self._turn_on_fan(FAN_HIGH)
+        await self._turn_off_fan(self.fan_medium_entity_id)
+        await self._turn_off_fan(self.fan_low_entity_id)
+        await self._turn_on_fan(self.fan_high_entity_id)
 
     async def _turn_on_fan_medium(self):
-        await self._turn_off_fan(FAN_HIGH)
-        await self._turn_off_fan(FAN_LOW)
-        await self._turn_on_fan(FAN_MEDIUM)
+        await self._turn_off_fan(self.fan_high_entity_id)
+        await self._turn_off_fan(self.fan_low_entity_id)
+        await self._turn_on_fan(self.fan_medium_entity_id)
 
     async def _turn_on_fan_low(self):
-        await self._turn_off_fan(FAN_HIGH)
-        await self._turn_off_fan(FAN_MEDIUM)
-        await self._turn_on_fan(FAN_LOW)
+        await self._turn_off_fan(self.fan_high_entity_id)
+        await self._turn_off_fan(self.fan_medium_entity_id)
+        await self._turn_on_fan(self.fan_low_entity_id)
 
     async def _turn_off_all_fans(self):
-        await self._turn_off_fan(FAN_HIGH)
-        await self._turn_off_fan(FAN_MEDIUM)
-        await self._turn_off_fan(FAN_LOW)
+        await self._turn_off_fan(self.fan_high_entity_id)
+        await self._turn_off_fan(self.fan_medium_entity_id)
+        await self._turn_off_fan(self.fan_low_entity_id)
 
     async def _turn_off_fan(self, fan: str):
         data = {ATTR_ENTITY_ID: fan}
