@@ -582,6 +582,7 @@ class ThermostatFan(ClimateEntity, RestoreEntity):
         await self.hass.services.async_call(
             HA_DOMAIN, SERVICE_TURN_ON, data, context=self._context
         )
+        await self._async_control_fan(force_on=True)
 
     async def _async_heater_turn_off(self):
         """Turn heater toggleable device off."""
@@ -614,11 +615,9 @@ class ThermostatFan(ClimateEntity, RestoreEntity):
 
         self.async_write_ha_state()
 
-    async def _async_control_fan(self):
-        _LOGGER.info("Controlling fan")
-        if self.hvac_action == HVACAction.OFF or self.hvac_action == HVACAction.IDLE:
-            await self._turn_off_all_fans()
-        else:
+    async def _async_control_fan(self, force_on = False):
+        _LOGGER.info("Controlling fan %s", self.hvac_action)
+        if force_on or self.hvac_action == HVACAction.COOLING:
             if self._attr_fan_mode == FAN_AUTO:
                 if abs(self._target_temp - self._cur_temp) > 2.0:
                     await self._turn_on_fan_high()
@@ -654,18 +653,26 @@ class ThermostatFan(ClimateEntity, RestoreEntity):
         await self._turn_off_fan(self.fan_low_entity_id)
 
     async def _turn_off_fan(self, fan: str):
+        _LOGGER.info("turning off fan %s", fan)
         data = {ATTR_ENTITY_ID: fan}
         await self.hass.services.async_call(
             HA_DOMAIN, SERVICE_TURN_OFF, data, context=self._context
         )
 
     async def _turn_on_fan(self, fan: str):
+        _LOGGER.info("turning on fan %s", fan)
         data = {ATTR_ENTITY_ID: fan}
         await self.hass.services.async_call(
             HA_DOMAIN, SERVICE_TURN_ON, data, context=self._context
         )
 
+    # def set_fan_mode(self, fan_mode: str) -> None:
+    #     self._attr_fan_mode = fan_mode
+    # #    await self._async_control_fan()
+
     async def async_set_fan_mode(self, fan_mode: str) -> None:
         """Set new fan mode."""
         _LOGGER.info("Setting fan mode to %s", fan_mode)
         self._attr_fan_mode = fan_mode
+        self.async_write_ha_state()
+        await self._async_control_fan()
